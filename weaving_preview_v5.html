@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <title>梵谷繩編圖案預覽</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            height: 100%; overflow: hidden;
+            background: linear-gradient(135deg, #f5ebe0 0%, #e8d5c0 100%);
+            font-family: 'Noto Sans TC', system-ui, sans-serif;
+        }
+        #app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        /* 工具列 */
+        .toolbar {
+            flex-shrink: 0;
+            display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+            padding: 8px 14px;
+            background: linear-gradient(90deg, #1a3a5c 0%, #1a5c9e 100%);
+            box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+        }
+        .toolbar-title {
+            font-size: 1rem; font-weight: 900; color: #fff;
+            letter-spacing: .08em; margin-right: 6px; white-space: nowrap;
+        }
+        #showLineNo {
+            display: flex; align-items: baseline; gap: 2px;
+            background: rgba(255,255,255,0.15);
+            border: 1.5px solid rgba(255,255,255,0.3);
+            border-radius: 10px; padding: 4px 12px;
+        }
+        #showLineNo span:nth-child(1) { color:#a8d4ff; font-size:0.72rem; font-weight:700; letter-spacing:.05em; }
+        #showLineNo span:nth-child(2) { font-size:1.9rem; font-weight:900; color:#fff; line-height:1; }
+        #showLineNo span:nth-child(3) { font-size:1rem; color:rgba(255,255,255,0.4); margin:0 3px; }
+        #showLineNo span:nth-child(4) { font-size:0.85rem; color:rgba(255,255,255,0.6); }
+
+        .tbtn {
+            display: inline-flex; align-items: center; justify-content: center;
+            height: 36px; padding: 0 14px;
+            border-radius: 9px; border: 1.5px solid;
+            font-size: 0.78rem; font-weight: 700;
+            cursor: pointer; white-space: nowrap;
+            transition: all .13s; outline: none;
+        }
+        .tbtn:active { transform: scale(0.93); }
+        .btn-prev   { background:rgba(255,255,255,0.12); border-color:rgba(255,255,255,0.35); color:#fff; }
+        .btn-next   { background:#2196f3; border-color:#2196f3; color:#fff; box-shadow:0 2px 8px rgba(33,150,243,0.5); }
+        .btn-reset  { background:rgba(255,255,255,0.08); border-color:rgba(255,120,120,0.6); color:#ffbbbb; }
+        .btn-sample { background:rgba(255,255,255,0.08); border-color:rgba(100,220,140,0.6); color:#aaffcc; }
+        .btn-record { background:#f39c12; border-color:#f39c12; color:#fff; box-shadow:0 2px 8px rgba(243,156,18,0.5); }
+        .tbtn:hover { opacity:0.82; }
+        .toolbar-spacer { flex:1; }
+
+        /* 說明列 */
+        .hint-bar {
+            flex-shrink: 0;
+            font-size: 0.68rem; color: #5a8ab0;
+            padding: 4px 14px;
+            background: #faf3ea;
+            border-bottom: 1px solid #e0cab0;
+        }
+
+        /* 顏色按鈕 */
+        .selbox {
+            flex-shrink: 0;
+            display: flex; flex-wrap: wrap; gap: 6px;
+            padding: 8px 12px;
+            background: linear-gradient(180deg, #f5ebe0 0%, #ede0d0 100%);
+            border-bottom: 2px solid #c8a87a;
+        }
+        .selbox div {
+            display: flex; align-items: center; justify-content: center;
+            width: 52px; height: 52px;
+            font-size: 0.72rem; font-weight: 800;
+            color: #fff; border-radius: 10px;
+            border: 2.5px solid rgba(255,255,255,0.5);
+            cursor: pointer; user-select: none;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.18);
+            transition: transform .12s, box-shadow .12s;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.55);
+            text-align: center; position: relative; overflow: hidden;
+        }
+        .selbox div::after {
+            content: ''; position: absolute; top:0; left:0; right:0; height:50%;
+            background: rgba(255,255,255,0.12); pointer-events: none;
+            border-radius: 8px 8px 0 0;
+        }
+        .selbox div:hover {
+            transform: scale(1.13) translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            border-color: rgba(255,255,255,0.95);
+        }
+        .selbox div.active {
+            border: 2.5px solid #fff; border-radius: 50%;
+            box-shadow: 0 0 0 3px #fff, 0 0 0 5px #1a5c9e, 0 5px 16px rgba(0,0,0,0.35);
+            transform: scale(1.1);
+        }
+        .selbox div.light-btn { color:#333; text-shadow:none; border-color:rgba(0,0,0,0.15); }
+        .selbox div.light-btn.active { box-shadow:0 0 0 3px #fff,0 0 0 5px #555,0 5px 12px rgba(0,0,0,0.2); }
+
+        /* Canvas 區 */
+        .canvas-wrap {
+            flex: 1; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+            padding: 10px;
+            background: radial-gradient(ellipse at center, #ede0d0 0%, #d9c5ad 100%);
+        }
+        #myCanvas {
+            max-width: 100%; max-height: 100%; display: block;
+            border-radius: 6px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.28), 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        /* Modal */
+        .modal-header { background: linear-gradient(90deg,#1a3a5c,#1a5c9e); color:#fff; border-bottom:none; }
+        .modal-header .btn-close { filter:invert(1); opacity:0.8; }
+        .modal-title { font-weight:900; letter-spacing:.05em; }
+        .modal-body h6 { color:#e96300; font-weight:700; margin-bottom:14px; font-size:0.85rem; }
+        #lineNames .col-2 {
+            background:#f8fafc; border-radius:8px; margin:3px 2px;
+            padding:6px 4px; border:1px solid #dce8f4;
+            font-size:0.72rem !important;
+        }
+
+        #lineType, #lineNum { visibility:hidden; position:absolute; left:-999px; }
+    </style>
+</head>
+<body>
+<select id="lineType"><option value="1">四角</option><option value="2">中央</option></select>
+<select id="lineNum"></select>
+<div id="app">
+  <div class="toolbar">
+    <span class="toolbar-title">🪑 繩編圖案預覽</span>
+    <div id="showLineNo">
+      <span>圈數&nbsp;</span>
+      <span id="tx_LineNow"></span>
+      <span>/</span>
+      <span id="tx_LineTot"></span>
+    </div>
+    <button class="tbtn btn-prev"   id="btnPrev">◀ 上一條</button>
+    <button class="tbtn btn-next"   id="btnNext">下一條 ▶</button>
+    <button class="tbtn btn-reset"  id="btnReset">✕ 清除</button>
+    <button class="tbtn btn-sample" id="btnSample">⟳ 樣版</button>
+    <button class="tbtn btn-record" id="btnOutput" data-bs-toggle="modal" data-bs-target="#myModal">📋 配色紀錄</button>
+    <div class="toolbar-spacer"></div>
+  </div>
+  <div class="hint-bar">💡 說明：點按各色按鈕，圈數即會自動 +1，必要時再透過上一條或下一條調整</div>
+  <div id="selBox" class="selbox"></div>
+  <div class="canvas-wrap">
+    <canvas id="myCanvas">Your browser does not support the canvas element.</canvas>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="myModal">
+  <div class="modal-dialog modal-fullscreen">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">📋 紙繩配色紀錄</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <h6>※ 建議使用螢幕截圖將配色紀錄保留 ※</h6>
+        <div id="lineNames" class="col-lg-12 col-md-6 col-xs-6 text-center row" style="font-size:0.75rem!important;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" data-bs-dismiss="modal">關閉</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript" charset="utf-8">
+var canvas=document.getElementById("myCanvas");
+var ctx=canvas.getContext("2d");
+var lineCnt=28,vLineCnt=19,selColor={},selVline={};
+var boxColor=[
+  {color:"#DDC675",name:"牛皮"},{color:"#b3850d",name:"黃褐"},{color:"#5F3B07",name:"深棕"},
+  {color:"#7DFB60",name:"脆綠"},{color:"#2CA707",name:"抹茶綠"},{color:"#29441b",name:"橄欖綠"},
+  {color:"#ffdb14",name:"黃"},{color:"#FAEEA0",name:"鵝黃"},{color:"#FFC187",name:"粉橘"},
+  {color:"#E96300",name:"南瓜橘"},{color:"#E008DD",name:"桃紅"},{color:"#C30000",name:"紅"},
+  {color:"#60c2ff",name:"粉藍"},{color:"#119ADB",name:"水藍"},{color:"#074d81",name:"皇家藍"},
+  {color:"#EEEEEE",name:"純白"},{color:"#000000",name:"黑"},{color:"#3b3b38",name:"深灰"},
+  {color:"#cccccc",name:"淺灰"}
+];
+var LIGHT=["#EEEEEE","#FAEEA0","#7DFB60","#FFC187","#DDC675","#ffdb14"];
+canvas.width=890; canvas.height=700;
+var sampleNames={1:'牛皮白棕經典',2:'皇家藍粉藍',3:'橄欖綠大地',4:'皇家藍單色',5:'黃褐+深棕',6:'彩虹森林',7:'北歐簡約',8:'台灣原住民風',9:'大地森林',10:'夕陽漸層',11:'海洋藍',12:'粉嫩春天',13:'摩卡慕斯',14:'律動絢藍',15:'尤加利綠大地',16:'暖心粉',17:'雲舞白極簡',18:'焦糖復古',19:'變革藍綠',20:'裸膚玫瑰',21:'鼠尾草綠',22:'深紅包豪斯',23:'映輝深灰',24:'蜂蜜金暖陽',25:'霧藍磚紅',26:'阿爾托自然',27:'深梅紫金'};
+var sampleNo=1;
+
+function ini(){
+  var s="";
+  for(let i=0;i<boxColor.length;i++){
+    var light=LIGHT.indexOf(boxColor[i].color)>=0;
+    s+='<div id="divCLR'+i+'" class="'+(light?'light-btn':'')+'" style="background-color:'+boxColor[i].color+';">'+boxColor[i].name+'</div>';
+  }
+  $('#tx_LineTot').html(lineCnt+vLineCnt);
+  $('#selBox').html(s);
+  ressetLine();
+}
+
+function ressetLine(){
+  for(let i=1;i<=lineCnt;i++) selColor[i]=18;
+  for(let i=1;i<=vLineCnt;i++) selVline[i]=18;
+  $('#lineType').val(1); iniLineNum(1); showChoice(1,1); preview();
+}
+
+function preview(){
+  ctx.strokeStyle="#000000";
+  ctx.lineWidth=0.25;
+  for(let j=lineCnt;j>0;j--){
+    ctx.fillStyle=(lineCnt>7)?boxColor[selColor[j]].color:"#000000";
+    // 四角填色
+    ctx.fillRect(0,0,j*10+70,j*10+70);
+    ctx.fillRect(0,(canvas.height-10*j)-70,j*10+70,canvas.width-j*10+70);
+    ctx.fillRect(canvas.width-j*10-70,0,canvas.width-j*10-70,j*10+70);
+    ctx.fillRect(canvas.width-j*10-70,canvas.height-10*j-70,canvas.width-j*10,canvas.height+70);
+    // 四角邊框 0.25
+    ctx.strokeRect(0,0,j*10+70,j*10+70);
+    ctx.strokeRect(0,(canvas.height-10*j)-70,j*10+70,canvas.width-j*10+70);
+    ctx.strokeRect(canvas.width-j*10-70,0,canvas.width-j*10-70,j*10+70);
+    ctx.strokeRect(canvas.width-j*10-70,canvas.height-10*j-70,canvas.width-j*10,canvas.height+70);
+  }
+  for(let k=1;k<=vLineCnt;k++){
+    ctx.fillStyle=boxColor[selVline[k]].color;
+    ctx.fillRect(350+10*(k-1),0,10,700);
+    // 中央縱線邊框 0.25
+    ctx.strokeRect(350+10*(k-1),0,10,700);
+  }
+  ctx.fillStyle="#fadfa5";
+  ctx.fillRect(0,0,70,70); ctx.fillRect(820,0,70,70);
+  ctx.fillRect(0,630,70,70); ctx.fillRect(820,630,70,70);
+  ctx.strokeStyle="#555555";
+  ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(70,70);  ctx.lineTo(350,350); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(70,630); ctx.lineTo(350,350); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(820,70); ctx.lineTo(540,350); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(820,630);ctx.lineTo(540,350); ctx.stroke();
+
+  var s='';
+  for(let j=1;j<=lineCnt;j++){
+    s+="<div class='col-2 text-left' style='background:#f8fafc;border-radius:8px;margin:3px 2px;padding:6px 4px;border:1px solid #dce8f4;font-size:0.72rem;'>"
+      +"<span style='display:inline-block;width:14px;height:14px;background:"+boxColor[selColor[j]].color+";border:1px solid #ccc;border-radius:3px;vertical-align:middle;margin-right:3px;'></span>"
+      +"<b>【"+j+"】</b><br/>"+boxColor[selColor[j]].name+"</div>";
+  }
+  s+="<div class='col-12' style='border-top:2px dashed #b0c8e0;margin:8px 0;'></div>";
+  for(let k=1;k<=vLineCnt;k++){
+    s+="<div class='col-2 text-left' style='background:#f8fafc;border-radius:8px;margin:3px 2px;padding:6px 4px;border:1px solid #dce8f4;font-size:0.72rem;'>"
+      +"<span style='display:inline-block;width:14px;height:14px;background:"+boxColor[selVline[k]].color+";border:1px solid #ccc;border-radius:3px;vertical-align:middle;margin-right:3px;'></span>"
+      +"<b>【"+(lineCnt*1.0+k)+"】</b><br/>"+boxColor[selVline[k]].name+"</div>";
+  }
+  $('#lineNames').html(s);
+}
+
+function showChoice(lType,lNum){
+  $("#selBox div").removeClass("active");
+  var iSel=(lType=='2'?selVline[lNum]:selColor[lNum]);
+  $("#divCLR"+iSel).addClass("active");
+  $('#tx_LineNow').html(lNum*1.0+(lType=='2'?lineCnt:0));
+}
+function choiceColor(lType,lNum,iSel){
+  $("#selBox div").removeClass("active");
+  $("#divCLR"+iSel).addClass("active");
+  if(lType=='2') selVline[lNum]=iSel; else selColor[lNum]=iSel;
+  preview();
+}
+function iniLineNum(lType){
+  var iCnt=(lType=='1')?lineCnt:vLineCnt;
+  $("#lineNum").empty();
+  for(i=1;i<=iCnt;i++){let op=document.createElement('option');op.value=i;op.innerHTML=i;document.getElementById("lineNum").appendChild(op);}
+}
+function getSample(No){
+  switch(No){
+    case 1: selColor=[0,1,1,1,1,1,1,15,15,2,2,2,2,2,15,15,1,1,1,1,1,1,1,15,15,2,2,2,2]; selVline=[0,15,15,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,15,15]; break;
+    case 2: selColor=[0,14,14,14,12,12,15,14,14,14,14,12,12,12,12,15,15,14,14,14,14,14,12,12,12,12,12,15,15]; selVline=[0,12,12,12,14,14,14,14,14,14,14,14,14,14,14,14,14,12,12,12]; break;
+    case 3: selColor=[0,5,5,5,5,5,5,5,0,0,4,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5]; selVline=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]; break;
+    case 4: selColor=[0,14,14,14,14,14,14,14,14,0,0,14,14,0,0,14,14,14,14,14,14,14,14,14,14,14,14,14,14]; selVline=[0,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14]; break;
+    case 5: selColor=[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]; selVline=[0,0,0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0,0]; break;
+    case 6: selColor=[0,4,4,4,4,4,3,3,14,14,12,12,13,13,13,13,12,12,14,14,3,3,4,4,4,4,4,4,4]; selVline=[0,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5]; break;
+    case 7:
+      // 北歐簡約：皇家藍+純白交替，中央純白
+      selColor=[0,14,15,14,15,14,15,14,15,14,15,14,15,14,15,14,15,14,15,14,15,14,15,14,15,14,15,14,15];
+      selVline=[0,15,15,15,15,14,14,14,14,14,14,14,14,14,15,15,15,15,15,15]; break;
+    case 8:
+      // 台灣原住民風：紅+黑+白三色
+      selColor=[0,11,11,16,16,15,15,11,11,16,16,15,15,11,11,16,16,15,15,11,11,16,16,15,15,11,11,16,16];
+      selVline=[0,15,15,11,11,16,16,11,11,15,15,11,11,16,16,11,11,15,15,15]; break;
+    case 9:
+      // 大地森林：橄欖綠+深棕+牛皮
+      selColor=[0,5,5,5,2,2,2,0,0,5,5,5,2,2,2,0,0,5,5,5,2,2,2,0,0,5,5,2,2];
+      selVline=[0,0,0,2,2,5,5,2,2,0,0,2,2,5,5,2,2,0,0,0]; break;
+    case 10:
+      // 夕陽漸層：南瓜橘+粉橘+鵝黃+純白
+      selColor=[0,9,9,9,8,8,8,7,7,7,15,15,15,7,7,7,8,8,8,9,9,9,9,8,8,7,7,15,15];
+      selVline=[0,9,9,8,8,7,7,15,15,7,7,8,8,9,9,8,7,15,9,9]; break;
+    case 11:
+      // 海洋藍：粉藍+水藍+皇家藍+純白
+      selColor=[0,12,12,13,13,14,14,15,15,14,14,13,13,12,12,15,15,14,14,13,12,12,13,14,15,15,14,13,12];
+      selVline=[0,12,13,14,15,14,13,12,12,13,14,15,14,13,12,12,13,14,15,15]; break;
+    case 12:
+      // 粉嫩春天：桃紅+鵝黃+脆綠+純白
+      selColor=[0,10,10,7,7,3,3,15,15,10,10,7,7,3,3,15,15,10,10,7,7,3,3,15,15,10,7,3,15];
+      selVline=[0,15,10,10,7,7,3,3,15,15,10,7,3,15,15,3,7,10,15,15]; break;
+    case 13:
+      // 🟤 摩卡慕斯 Mocha Mousse（2025 Pantone年度色）
+      // 深棕+牛皮+鵝黃+純白，溫暖咖啡感
+      selColor=[0,2,2,0,0,7,7,15,15,2,2,0,0,7,7,15,15,2,2,0,0,7,7,15,15,2,0,7,15];
+      selVline=[0,15,7,0,2,2,0,7,15,15,7,0,2,2,0,7,15,15,7,0]; break;
+    case 14:
+      // 🔵 律動絢藍（2026 Dulux年度色）
+      // 皇家藍+水藍+粉藍+純白，層次藍漸層
+      selColor=[0,14,14,13,13,12,12,15,15,14,14,13,13,12,12,15,15,14,13,12,15,14,13,12,15,14,13,12,15];
+      selVline=[0,14,14,13,13,12,12,15,15,14,13,12,15,14,13,12,15,14,13,13]; break;
+    case 15:
+      // 🌿 尤加利綠大地（2026 室內趨勢）
+      // 橄欖綠+抹茶綠+深棕+牛皮，自然療癒
+      selColor=[0,5,5,4,4,2,2,0,0,5,5,4,4,2,2,0,0,5,4,2,0,5,4,2,0,5,5,4,2];
+      selVline=[0,0,2,4,5,5,4,2,0,0,2,4,5,5,4,2,0,0,5,5]; break;
+    case 16:
+      // 🩷 暖心粉（2026 JAFCA日本年度色）
+      // 桃紅+粉橘+鵝黃+純白，柔和溫柔
+      selColor=[0,10,10,8,8,7,7,15,15,10,10,8,8,7,7,15,15,10,8,7,15,10,8,7,15,10,10,8,8];
+      selVline=[0,15,10,8,7,15,10,8,7,15,10,8,7,15,10,8,7,15,10,10]; break;
+    case 17:
+      // ⬜ 雲舞白極簡（2026 Pantone年度色）
+      // 純白+淺灰+深灰交替，禪意簡約
+      selColor=[0,15,15,18,18,17,17,15,15,18,18,17,15,15,18,18,17,17,15,18,15,17,15,18,17,15,15,18,17];
+      selVline=[0,15,18,17,15,18,17,15,18,17,15,18,17,15,18,17,15,18,17,17]; break;
+    case 18:
+      // 🟠 焦糖復古中古風（2026 熱門混搭風）
+      // 南瓜橘+深棕+黃褐+黑，復古咖啡館感
+      selColor=[0,9,9,2,2,1,1,16,16,9,9,2,2,1,1,16,16,9,2,1,16,9,9,2,1,16,9,2,1];
+      selVline=[0,16,1,2,9,9,2,1,16,16,1,2,9,9,2,1,16,16,9,9]; break;
+        case 19:
+      // 🟢 變革藍綠 Transformative Teal（WGSN 2026年度色）
+      // 水藍+抹茶綠+純白，自然平衡療癒
+      selColor=[0,13,13,4,4,15,15,13,13,4,4,15,15,13,4,15,13,13,4,4,15,13,4,15,13,13,4,15,13];
+      selVline=[0,4,13,15,4,13,15,4,13,15,4,13,15,4,13,15,4,13,15,15]; break;
+    case 20:
+      // 🌸 裸膚玫瑰（2026高端住宅趨勢）
+      // 粉橘+鵝黃+純白+淺灰，輕奢溫柔
+      selColor=[0,8,8,7,7,15,15,18,18,8,8,7,7,15,15,18,18,8,7,15,18,8,8,7,15,18,8,7,15];
+      selVline=[0,15,18,7,8,15,18,7,8,15,18,7,8,15,18,7,8,15,18,18]; break;
+    case 21:
+      // 🪴 鼠尾草綠極簡（2026室內療癒風）
+      // 抹茶綠+橄欖綠+純白，侘寂自然風
+      selColor=[0,4,4,5,5,15,15,4,4,5,5,15,15,4,5,15,4,4,5,5,15,4,5,15,4,4,5,15,4];
+      selVline=[0,15,4,5,15,4,5,15,4,5,15,4,5,15,4,5,15,4,5,5]; break;
+    case 22:
+      // 🔴 深紅包豪斯（2026包豪斯工業風）
+      // 紅+黑+黃+純白，高飽和點綴
+      selColor=[0,11,11,16,16,6,6,15,15,11,11,16,16,6,6,15,15,11,16,6,15,11,11,16,6,15,11,16,6];
+      selVline=[0,15,6,16,11,15,6,16,11,15,6,16,11,15,6,16,11,15,6,6]; break;
+    case 23:
+      // 🟤 映輝深灰奢華（2026 Benjamin Moore年度色）
+      // 深灰+黑+牛皮+淺灰，低調精緻
+      selColor=[0,17,17,16,16,0,0,18,18,17,17,16,16,0,0,18,18,17,16,0,18,17,17,16,0,18,17,16,0];
+      selVline=[0,18,0,16,17,18,0,16,17,18,0,16,17,18,0,16,17,18,0,0]; break;
+    case 24:
+      // 🟡 蜂蜜金暖陽（2026 暖黃系大地趨勢）
+      // 黃+土黃+南瓜橘+深棕，溫暖活力
+      selColor=[0,6,6,0,0,9,9,2,2,6,6,0,0,9,9,2,2,6,0,9,2,6,6,0,9,2,6,0,9];
+      selVline=[0,2,9,0,6,2,9,0,6,2,9,0,6,2,9,0,6,2,9,9]; break;
+    case 25:
+      // 💙 輕漾霧藍+磚紅（2026 得利配色方案）
+      // 粉藍+磚紅(用南瓜橘替代)+牛皮+純白
+      selColor=[0,12,12,9,9,0,0,15,15,12,12,9,9,0,0,15,15,12,9,0,15,12,12,9,0,15,12,9,0];
+      selVline=[0,15,0,9,12,15,0,9,12,15,0,9,12,15,0,9,12,15,0,0]; break;
+    case 26:
+      // 🌿 阿爾托自然風（2026 復古未來主義）
+      // 橄欖綠+深棕+黃褐+淺灰，做舊質感
+      selColor=[0,5,5,2,2,1,1,18,18,5,5,2,2,1,1,18,18,5,2,1,18,5,5,2,1,18,5,2,1];
+      selVline=[0,18,1,2,5,18,1,2,5,18,1,2,5,18,1,2,5,18,5,5]; break;
+    case 27:
+      // 🟣 深梅紫+金（2026 紫色回歸趨勢）
+      // 暗紫(用桃紅替代)+深棕+土黃+黑，神秘奢華
+      selColor=[0,10,10,2,2,1,1,16,16,10,10,2,2,1,1,16,16,10,2,1,16,10,10,2,1,16,10,2,1];
+      selVline=[0,16,1,2,10,16,1,2,10,16,1,2,10,16,1,2,10,16,10,10]; break;
+        default: selColor=[0,9,9,14,14,8,8,15,15,14,14,14,14,14,14,14,14,14,14,14,14,14,9,9,15,15,9,9,9]; selVline=[0,15,15,15,8,8,9,9,9,9,9,9,9,9,9,8,8,15,15,15]; sampleNo=1; break;
+  }
+  var showNo=(No>27||No<1)?1:(No);
+  var name=sampleNames[showNo]||'樣版';
+  $('#btnSample').html('⟳ 樣版 -'+showNo+'. '+name);
+  preview(); sampleNo++; $("#lineNum").change();
+}
+
+$(function(){
+  ini();
+  $("#selBox div").click(function(){
+    var lType=$('#lineType').val(),lNum=$('#lineNum').val(),iSel=this.id.replace('divCLR','');
+    choiceColor(lType,lNum,iSel); $("#btnNext").click();
+  });
+  $("#lineType,#lineNum").change(function(){
+    var lType=$('#lineType').val();
+    if(this.id=="lineType") $('#lineNum').val(1);
+    showChoice(lType,$('#lineNum').val());
+  });
+  $("#btnPrev,#btnNext").click(function(){
+    var lNum=$('#lineNum'),iNum=lNum.val()*1.0+((this.id=='btnPrev')?-1:1),lType=$('#lineType').val();
+    if(this.id=='btnPrev'){
+      if(iNum==0||(iNum==lineCnt&&lType==2)){
+        $('#lineType').val((lType==1)?2:1); iniLineNum($('#lineType').val());
+        lNum.val((lType=='1')?vLineCnt:lineCnt);
+      }else{ var iTot=(lType=='1'?lineCnt:vLineCnt); lNum.val((iNum%iTot==0)?iTot:(iNum%iTot)); }
+    }else{
+      var iTot=(lType=='1'?lineCnt:vLineCnt); lNum.val((iNum%iTot==0)?iTot:(iNum%iTot));
+      if(iNum>iTot){ lNum.val(1); $('#lineType').val((lType==1)?2:1); iniLineNum($('#lineType').val()); }
+      else{ lNum.val((iNum%iTot==0)?iTot:(iNum%iTot)); }
+    }
+    lNum.change();
+  });
+  $("#btnReset").click(function(){ ressetLine(); });
+  $("#btnSample").click(function(){ getSample(sampleNo); });
+});
+</script>
+</body>
+</html>
